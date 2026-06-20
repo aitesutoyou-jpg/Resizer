@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リサイザー</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500;1,9..144,600&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --bg:#13110d;
+  --surface:#1b1712;
+  --surface-2:#241f18;
+  --mat:#ece5d6;        /* 印画紙のマット */
+  --mat-dim:#cfc6b2;
+  --border:#372f25;
+  --border-soft:#2a241c;
+  --text:#f2ece0;
+  --text-dim:#a3957f;
+  --accent:#cf4520;
+  --accent-soft:rgba(207,69,32,.13);
+  --gold:#d9ad55;
+  --ok:#7fb37a;
+  --err:#c75c4f;
+  --radius:4px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  background-image:
+    radial-gradient(ellipse 700px 400px at 8% -5%, rgba(207,69,32,.07), transparent 60%),
+    radial-gradient(ellipse 600px 500px at 100% 10%, rgba(217,173,85,.05), transparent 55%);
+  color:var(--text);
+  font-family:'Zen Kaku Gothic New', sans-serif;
+  min-height:100vh;
+  padding: 0 0 90px;
+}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+.wrap{max-width:1040px; margin:0 auto; padding: 0 20px;}
+
+/* ================= HERO ================= */
+.hero{
+  padding: 56px 0 38px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 30px;
+  position:relative;
+}
+.hero-eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--gold);
+  display:flex; align-items:center; gap:10px;
+  margin-bottom: 14px;
+}
+.hero-eyebrow::before{
+  content:''; width:18px; height:1px; background:var(--gold);
+}
+.wordmark{
+  font-family:'Fraunces', serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(48px, 8vw, 84px);
+  line-height: .95;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0 0 14px;
+}
+.wordmark .dot{ color: var(--accent); font-style:normal; }
+.hero-sub{
+  color:var(--text-dim); font-size:14.5px; line-height:1.8; max-width:520px;
+}
+.hero-stats{
+  display:flex; gap:28px; margin-top:26px; flex-wrap:wrap;
+}
+.hstat{ font-family:'JetBrains Mono',monospace; }
+.hstat .n{ font-size:20px; color:var(--gold); font-weight:700; display:block; }
+.hstat .l{ font-size:10.5px; color:var(--text-dim); letter-spacing:.1em; text-transform:uppercase; }
+
+/* ================= CARD ================= */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius);
+  padding:24px;
+  margin-bottom:18px;
+}
+.card-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--text-dim);
+  margin-bottom:16px;
+  display:flex; align-items:center; gap:9px;
+}
+.card-label .idx{ color:var(--accent); }
+.card-label::after{ content:''; flex:1; height:1px; background:var(--border-soft); }
+
+/* ================= DROPZONE ================= */
+.dropzone{
+  border:1.5px dashed var(--border);
+  border-radius:var(--radius);
+  padding:40px 20px;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .15s, background .15s;
+}
+.dropzone:hover,.dropzone.drag{ border-color:var(--accent); background:var(--accent-soft); }
+.dropzone input{display:none;}
+.dz-icon{
+  width:40px; height:40px; margin:0 auto 14px;
+  border:1.5px solid var(--text-dim); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; color:var(--text-dim);
+}
+.dz-text{font-size:14.5px;}
+.dz-text b{color:var(--gold); font-weight:700;}
+.dz-sub{font-size:11.5px; color:var(--text-dim); margin-top:7px; font-family:'JetBrains Mono',monospace; letter-spacing:.04em;}
+
+/* ================= CONTACT SHEET ================= */
+.sheet-head{
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;
+}
+.sheet-count{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim); }
+.sheet-count b{ color:var(--gold); }
+.clear-all{
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim);
+  cursor:pointer; letter-spacing:.04em; text-decoration:underline; text-underline-offset:3px;
+}
+.clear-all:hover{ color:var(--accent); }
+
+.contact-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px,1fr));
+  gap:16px;
+}
+.print{
+  background:var(--mat);
+  border-radius:2px;
+  padding: 10px 10px 12px;
+  position:relative;
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  transform: rotate(var(--tilt,0deg));
+}
+.print::before{
+  content:'';
+  position:absolute; inset:0;
+  border-radius:2px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+  pointer-events:none;
+}
+.print-thumb{
+  width:100%; aspect-ratio:1/1;
+  background:#0e0c09;
+  overflow:hidden; border-radius:1px;
+  position:relative;
+}
+.print-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.print-remove{
+  position:absolute; top:6px; right:6px;
+  width:20px; height:20px; border-radius:50%;
+  background:rgba(20,16,12,.72); color:#f2ece0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; cursor:pointer; z-index:2;
+  border:1px solid rgba(255,255,255,.15);
+  opacity:0; transition:opacity .15s;
+}
+.print:hover .print-remove{ opacity:1; }
+.print-status{
+  position:absolute; top:6px; left:6px;
+  width:8px; height:8px; border-radius:50%;
+  background:var(--text-dim); z-index:2;
+  box-shadow: 0 0 0 2px rgba(20,16,12,.5);
+}
+.print-status.processing{ background:var(--gold); animation:pulse 1s infinite ease-in-out; }
+.print-status.done{ background:var(--ok); }
+.print-status.error{ background:var(--err); }
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+.print-cap{
+  margin-top:9px;
+  font-family:'JetBrains Mono',monospace;
+  color:#3a3326;
+}
+.print-name{
+  font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.print-meta{ font-size:9.5px; color:#6b6151; margin-top:3px; display:flex; justify-content:space-between; gap:4px;}
+.print-arrow{ color:var(--accent); font-weight:700; }
+.print-dl{
+  display:none;
+  margin-top:7px;
+  font-size:10px; text-align:center;
+  background:#241f18; color:var(--gold);
+  padding:5px 0; border-radius:2px; cursor:pointer;
+  letter-spacing:.05em;
+}
+.print-dl.show{ display:block; }
+.print-dl:hover{ background:#2e271c; }
+
+/* ================= FORM ELEMENTS ================= */
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+@media (max-width:620px){ .grid2,.grid3{grid-template-columns:1fr;} }
+
+.field-label{
+  font-size:12px; color:var(--text-dim); margin-bottom:7px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+input[type=number],input[type=text],select{
+  width:100%;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:var(--radius);
+  font-family:'JetBrains Mono',monospace;
+  font-size:13.5px;
+  outline:none;
+}
+input::placeholder{ color:#5e5547; }
+input:focus,select:focus{ border-color:var(--accent); }
+select{
+  appearance:none; -webkit-appearance:none; cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%);
+  background-position:calc(100% - 16px) center, calc(100% - 11px) center;
+  background-size:5px 5px,5px 5px; background-repeat:no-repeat;
+}
+.hint{ font-size:11.5px; color:var(--text-dim); margin-top:9px; line-height:1.6; }
+
+.presets{display:flex; flex-wrap:wrap; gap:8px; margin-top:13px;}
+.chip{
+  font-family:'JetBrains Mono',monospace; font-size:11.5px;
+  padding:6px 12px; border:1px solid var(--border); border-radius:20px;
+  color:var(--text-dim); cursor:pointer; background:transparent; transition:all .15s;
+}
+.chip:hover{ border-color:var(--gold); color:var(--gold); }
+
+.toggle-row{display:flex; gap:8px; margin-bottom:16px;}
+.toggle-btn{
+  flex:1; text-align:center; padding:10px;
+  font-size:12.5px; border:1px solid var(--border); border-radius:var(--radius);
+  color:var(--text-dim); cursor:pointer; background:var(--surface-2);
+  font-family:'JetBrains Mono',monospace; transition:all .15s;
+}
+.toggle-btn.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+
+input[type=range]{
+  width:100%; appearance:none; -webkit-appearance:none;
+  height:3px; background:var(--border); border-radius:2px; outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none; -webkit-appearance:none;
+  width:15px; height:15px; border-radius:50%;
+  background:var(--gold); cursor:pointer; border:2px solid #14110d;
+}
+.note{ font-size:12px; color:var(--text-dim); line-height:1.6; margin-top:10px; }
+.note.warn{ color:var(--gold); }
+
+/* ================= ACTION ================= */
+.overall{
+  display:flex; align-items:center; gap:14px; margin-bottom:16px;
+}
+.overall .bar{ flex:1; height:5px; background:var(--surface-2); border:1px solid var(--border); border-radius:3px; overflow:hidden; }
+.overall .fill{ height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--gold)); transition:width .2s; }
+.overall .val{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--gold); min-width:70px; text-align:right; }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  border-radius:var(--radius); font-size:14px; font-weight:700; cursor:pointer; border:none;
+  font-family:'Zen Kaku Gothic New', sans-serif; transition:transform .1s, opacity .15s, background .15s;
+}
+.btn:active{ transform:scale(.98); }
+.btn:disabled{ opacity:.35; cursor:not-allowed; }
+.btn-primary{ background:var(--accent); color:#fff; width:100%; padding:16px; font-size:15px; }
+.btn-primary:not(:disabled):hover{ background:#b53c1b; }
+.btn-secondary{ background:var(--surface-2); color:var(--gold); border:1px solid var(--border); width:100%; padding:13px; }
+.btn-secondary:not(:disabled):hover{ border-color:var(--gold); }
+.btn-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+@media (max-width:600px){ .btn-row{grid-template-columns:1fr;} }
+
+.status-text{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim); margin-top:12px; min-height:16px; }
+.status-text.ok{ color:var(--ok); }
+
+footer{ text-align:center; margin-top:36px; color:var(--text-dim); font-size:11px; font-family:'JetBrains Mono',monospace; letter-spacing:.07em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="hero-eyebrow">BATCH PHOTO LAB</div>
+    <h1 class="wordmark">リサイザー<span class="dot">.</span></h1>
+    <p class="hero-sub">写真を何枚でも一度に放り込んで、サイズと容量をまとめて指定どおりに焼き直すツールです。すべてこの端末内で処理され、どこにも送信されません。</p>
+    <div class="hero-stats">
+      <div class="hstat"><span class="n" id="statCount">0</span><span class="l">枚 選択中</span></div>
+      <div class="hstat"><span class="n" id="statDone">0</span><span class="l">枚 完了</span></div>
+      <div class="hstat"><span class="n" id="statSaved">—</span><span class="l">合計削減量</span></div>
+    </div>
+  </div>
+
+  <!-- アップロード -->
+  <div class="card">
+    <div class="card-label"><span class="idx">01</span>画像を選ぶ（複数可）</div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div class="dz-icon">＋</div>
+      <div class="dz-text">ここに画像をまとめてドラッグ、または <b>クリックして選択</b></div>
+      <div class="dz-sub">JPEG / PNG / WebP・複数選択対応</div>
+    </div>
+  </div>
+
+  <!-- コンタクトシート -->
+  <div class="card" id="sheetCard" style="display:none;">
+    <div class="sheet-head">
+      <div class="card-label" style="margin:0;"><span class="idx">02</span>コンタクトシート</div>
+    </div>
+    <div class="sheet-count" style="margin-bottom:14px;"><b id="countNum">0</b> 枚 / <span id="clearAll" class="clear-all">すべて削除</span></div>
+    <div class="contact-grid" id="contactGrid"></div>
+  </div>
+
+  <!-- サイズ設定 -->
+  <div class="card" id="sizeCard" style="display:none;">
+    <div class="card-label"><span class="idx">03</span>縦横サイズ（最大値・各写真の比率は保持）</div>
+    <div class="grid2">
+      <label class="field">
+        <div class="field-label">幅の上限 (px)</div>
+        <input type="number" id="maxWInput" placeholder="例: 1920" min="1">
+      </label>
+      <label class="field">
+        <div class="field-label">高さの上限 (px)</div>
+        <input type="number" id="maxHInput" placeholder="例: 1080" min="1">
+      </label>
+    </div>
+    <div class="presets" id="presets"></div>
+    <div class="hint">空欄のままにすると、その方向のサイズは変更しません。各写真は元の縦横比を保ったまま、指定した枠に収まるよう縮小されます（拡大はしません）。</div>
+  </div>
+
+  <!-- 容量設定 -->
+  <div class="card" id="capacityCard" style="display:none;">
+    <div class="card-label"><span class="idx">04</span>データ容量</div>
+    <div class="toggle-row">
+      <div class="toggle-btn active" id="modeQuality">画質を指定</div>
+      <div class="toggle-btn" id="modeTarget">1枚あたりの目標容量</div>
+    </div>
+
+    <div id="qualityPane">
+      <div class="field-label"><span>画質</span><span class="mono" id="qualityVal">85%</span></div>
+      <input type="range" id="qualitySlider" min="10" max="100" value="85">
+    </div>
+
+    <div id="targetPane" style="display:none;">
+      <div class="grid2">
+        <label class="field">
+          <div class="field-label">目標容量</div>
+          <input type="number" id="targetSizeInput" min="1" value="500">
+        </label>
+        <label class="field">
+          <div class="field-label">単位</div>
+          <select id="targetUnit">
+            <option value="KB">KB</option>
+            <option value="MB">MB</option>
+          </select>
+        </label>
+      </div>
+      <div class="note" id="targetNote">各写真ごとに画質を自動調整し、指定容量に近づけます（完全一致は保証されません）。</div>
+    </div>
+
+    <div class="grid2" style="margin-top:16px;">
+      <label class="field">
+        <div class="field-label">出力形式</div>
+        <select id="formatSelect">
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/webp">WebP</option>
+          <option value="image/png">PNG</option>
+        </select>
+      </label>
+      <div></div>
+    </div>
+    <div class="note warn" id="pngWarn" style="display:none;">PNGは可逆圧縮のため、画質調整による容量指定はできません。容量を縮めたい場合はJPEGかWebPを選ぶか、サイズの上限を小さくしてください。</div>
+  </div>
+
+  <!-- 実行 -->
+  <div class="card" id="actionCard" style="display:none;">
+    <div class="card-label"><span class="idx">05</span>一括書き出し</div>
+    <div class="overall">
+      <div class="bar"><div class="fill" id="overallFill"></div></div>
+      <div class="val mono" id="overallVal">0 / 0</div>
+    </div>
+    <button class="btn btn-primary" id="processBtn">この設定でまとめて焼き直す</button>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="downloadZipBtn" disabled>すべてZIPでダウンロード</button>
+      <button class="btn btn-secondary" id="resetBtn">最初からやり直す</button>
+    </div>
+    <div class="status-text" id="statusText"></div>
+  </div>
+
+  <footer>すべての処理はブラウザ内で完結します — サーバーへのアップロードはありません</footer>
+</div>
+
+<script>
+// ============== 状態 ==============
+let items = [];     // {id, file, img, url, origW, origH, status, resultBlob, resultUrl, outW, outH}
+let seq = 0;
+let lastProcessedBytesIn = 0;
+let lastProcessedBytesOut = 0;
+
+// ============== 要素参照 ==============
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const sheetCard = document.getElementById('sheetCard');
+const contactGrid = document.getElementById('contactGrid');
+const countNum = document.getElementById('countNum');
+const clearAll = document.getElementById('clearAll');
+
+const sizeCard = document.getElementById('sizeCard');
+const capacityCard = document.getElementById('capacityCard');
+const actionCard = document.getElementById('actionCard');
+
+const maxWInput = document.getElementById('maxWInput');
+const maxHInput = document.getElementById('maxHInput');
+const presets = document.getElementById('presets');
+
+const modeQuality = document.getElementById('modeQuality');
+const modeTarget = document.getElementById('modeTarget');
+const qualityPane = document.getElementById('qualityPane');
+const targetPane = document.getElementById('targetPane');
+const qualitySlider = document.getElementById('qualitySlider');
+const qualityVal = document.getElementById('qualityVal');
+const targetSizeInput = document.getElementById('targetSizeInput');
+const targetUnit = document.getElementById('targetUnit');
+const formatSelect = document.getElementById('formatSelect');
+const pngWarn = document.getElementById('pngWarn');
+
+const overallFill = document.getElementById('overallFill');
+const overallVal = document.getElementById('overallVal');
+const processBtn = document.getElementById('processBtn');
+const downloadZipBtn = document.getElementById('downloadZipBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusText = document.getElementById('statusText');
+
+const statCount = document.getElementById('statCount');
+const statDone = document.getElementById('statDone');
+const statSaved = document.getElementById('statSaved');
+
+let sizeMode = 'quality';
+
+// ============== プリセット ==============
+const presetList = [
+  {label:'フルHD (1920×1080)', w:1920, h:1080},
+  {label:'インスタ正方形 (1080×1080)', w:1080, h:1080},
+  {label:'ストーリー (1080×1920)', w:1080, h:1920},
+  {label:'証明写真サイズ (413×531)', w:413, h:531},
+  {label:'4K (3840×2160)', w:3840, h:2160},
+];
+presetList.forEach(p=>{
+  const el = document.createElement('button');
+  el.type='button'; el.className='chip'; el.textContent = p.label;
+  el.addEventListener('click', ()=>{ maxWInput.value=p.w; maxHInput.value=p.h; });
+  presets.appendChild(el);
+});
+
+// ============== ユーティリティ ==============
+function fmtBytes(bytes){
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(2) + ' MB';
+}
+function uid(){ return 'img_' + (seq++); }
+
+// ============== アップロード ==============
+dropzone.addEventListener('click', ()=> fileInput.click());
+['dragover','dragenter'].forEach(ev=>{
+  dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+});
+['dragleave','drop'].forEach(ev=>{
+  dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); });
+});
+dropzone.addEventListener('drop', e=>{
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e=>{
+  handleFiles(e.target.files);
+  fileInput.value = '';
+});
+
+function handleFiles(fileList){
+  const files = Array.from(fileList).filter(f=>f.type.startsWith('image/'));
+  if(files.length === 0) return;
+  files.forEach(file=>{
+    const id = uid();
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    const item = { id, file, img:null, url, origW:0, origH:0, status:'pending', resultBlob:null, resultUrl:null, outW:0, outH:0 };
+    items.push(item);
+    img.onload = ()=>{
+      item.img = img;
+      item.origW = img.naturalWidth;
+      item.origH = img.naturalHeight;
+      renderGrid();
+    };
+    img.src = url;
+  });
+  renderGrid();
+  showCardsIfNeeded();
+}
+
+function showCardsIfNeeded(){
+  const has = items.length > 0;
+  sheetCard.style.display = has ? 'block' : 'none';
+  sizeCard.style.display = has ? 'block' : 'none';
+  capacityCard.style.display = has ? 'block' : 'none';
+  actionCard.style.display = has ? 'block' : 'none';
+}
+
+function removeItem(id){
+  const idx = items.findIndex(i=>i.id===id);
+  if(idx>-1){
+    const it = items[idx];
+    if(it.url) URL.revokeObjectURL(it.url);
+    if(it.resultUrl) URL.revokeObjectURL(it.resultUrl);
+    items.splice(idx,1);
+  }
+  renderGrid();
+  showCardsIfNeeded();
+}
+
+clearAll.addEventListener('click', ()=>{
+  items.forEach(it=>{
+    if(it.url) URL.revokeObjectURL(it.url);
+    if(it.resultUrl) URL.revokeObjectURL(it.resultUrl);
+  });
+  items = [];
+  renderGrid();
+  showCardsIfNeeded();
+  downloadZipBtn.disabled = true;
+  statusText.textContent = '';
+});
+
+// ============== グリッド描画 ==============
+const tilts = [-1.4, 0.8, -0.6, 1.2, -1.8, 0.5, 1.6, -0.9];
+function renderGrid(){
+  contactGrid.innerHTML = '';
+  items.forEach((it, i)=>{
+    const card = document.createElement('div');
+    card.className = 'print';
+    card.style.setProperty('--tilt', tilts[i % tilts.length] + 'deg');
+
+    const thumb = document.createElement('div');
+    thumb.className = 'print-thumb';
+    const imEl = document.createElement('img');
+    imEl.src = it.resultUrl || it.url;
+    thumb.appendChild(imEl);
+
+    const statusDot = document.createElement('div');
+    statusDot.className = 'print-status ' + it.status;
+    thumb.appendChild(statusDot);
+
+    const removeBtn = document.createElement('div');
+    removeBtn.className = 'print-remove';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', (e)=>{ e.stopPropagation(); removeItem(it.id); });
+    thumb.appendChild(removeBtn);
+
+    card.appendChild(thumb);
+
+    const cap = document.createElement('div');
+    cap.className = 'print-cap';
+    const name = document.createElement('div');
+    name.className = 'print-name';
+    name.textContent = it.file.name;
+    cap.appendChild(name);
+
+    const meta = document.createElement('div');
+    meta.className = 'print-meta';
+    if(it.status === 'done'){
+      meta.innerHTML = `<span>${it.outW}×${it.outH}</span><span class="print-arrow">→</span><span>${fmtBytes(it.resultBlob.size)}</span>`;
+    } else if(it.origW){
+      meta.innerHTML = `<span>${it.origW}×${it.origH}</span><span>${fmtBytes(it.file.size)}</span>`;
+    } else {
+      meta.innerHTML = `<span>読込中…</span>`;
+    }
+    cap.appendChild(meta);
+    card.appendChild(cap);
+
+    const dl = document.createElement('div');
+    dl.className = 'print-dl' + (it.status==='done' ? ' show' : '');
+    dl.textContent = 'ダウンロード';
+    dl.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(!it.resultBlob) return;
+      const ext = extFor(formatSelect.value);
+      const a = document.createElement('a');
+      a.href = it.resultUrl;
+      a.download = baseName(it.file.name) + '_resized.' + ext;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    });
+    card.appendChild(dl);
+
+    contactGrid.appendChild(card);
+  });
+  countNum.textContent = items.length;
+  statCount.textContent = items.length;
+  const doneCount = items.filter(i=>i.status==='done').length;
+  statDone.textContent = doneCount;
+  if(doneCount>0){
+    let bytesIn=0, bytesOut=0;
+    items.forEach(i=>{ if(i.status==='done'){ bytesIn += i.file.size; bytesOut += i.resultBlob.size; } });
+    const diff = bytesIn - bytesOut;
+    statSaved.textContent = (diff>=0?'-':'+') + fmtBytes(Math.abs(diff));
+  } else {
+    statSaved.textContent = '—';
+  }
+}
+
+function baseName(filename){
+  const idx = filename.lastIndexOf('.');
+  return idx>0 ? filename.slice(0,idx) : filename;
+}
+function extFor(type){
+  return type==='image/png' ? 'png' : (type==='image/webp' ? 'webp' : 'jpg');
+}
+
+// ============== 容量モード切替 ==============
+modeQuality.addEventListener('click', ()=>{
+  sizeMode='quality';
+  modeQuality.classList.add('active'); modeTarget.classList.remove('active');
+  qualityPane.style.display='block'; targetPane.style.display='none';
+});
+modeTarget.addEventListener('click', ()=>{
+  sizeMode='target';
+  modeTarget.classList.add('active'); modeQuality.classList.remove('active');
+  qualityPane.style.display='none'; targetPane.style.display='block';
+});
+qualitySlider.addEventListener('input', ()=>{ qualityVal.textContent = qualitySlider.value + '%'; });
+formatSelect.addEventListener('change', updatePngWarn);
+function updatePngWarn(){ pngWarn.style.display = formatSelect.value==='image/png' ? 'block' : 'none'; }
+
+// ============== リサイズ計算 ==============
+function computeFitSize(origW, origH, maxW, maxH){
+  let w = origW, h = origH;
+  let scale = 1;
+  if(maxW && maxH){
+    scale = Math.min(maxW/origW, maxH/origH, 1);
+  } else if(maxW){
+    scale = Math.min(maxW/origW, 1);
+  } else if(maxH){
+    scale = Math.min(maxH/origH, 1);
+  }
+  w = Math.max(1, Math.round(origW*scale));
+  h = Math.max(1, Math.round(origH*scale));
+  return {w,h};
+}
+
+// ============== canvas → blob ==============
+function canvasToBlob(canvas, type, quality){
+  return new Promise(resolve=>{ canvas.toBlob(b=>resolve(b), type, quality); });
+}
+async function compressToTarget(canvas, type, targetBytes){
+  let lo=0.05, hi=1.0, best=null;
+  for(let i=0;i<7;i++){
+    const mid=(lo+hi)/2;
+    const blob = await canvasToBlob(canvas, type, mid);
+    if(!blob) break;
+    if(blob.size > targetBytes){ hi = mid; } else { best = blob; lo = mid; }
+  }
+  if(!best){ best = await canvasToBlob(canvas, type, lo); }
+  return best;
+}
+
+// ============== 一括処理 ==============
+processBtn.addEventListener('click', async ()=>{
+  const pending = items.filter(i=>i.img);
+  if(pending.length===0) return;
+
+  processBtn.disabled = true;
+  downloadZipBtn.disabled = true;
+  statusText.className = 'status-text';
+  statusText.textContent = '処理を開始します…';
+
+  const maxW = parseInt(maxWInput.value) || null;
+  const maxH = parseInt(maxHInput.value) || null;
+  const type = formatSelect.value;
+  const unit = targetUnit.value;
+  const targetVal = parseFloat(targetSizeInput.value) || 1;
+  const targetBytes = unit==='MB' ? targetVal*1024*1024 : targetVal*1024;
+
+  let done = 0;
+  overallFill.style.width = '0%';
+  overallVal.textContent = `0 / ${pending.length}`;
+
+  for(const it of pending){
+    it.status = 'processing';
+    renderGrid();
+    await new Promise(r=>setTimeout(r,0));
+
+    try{
+      const {w,h} = computeFitSize(it.origW, it.origH, maxW, maxH);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(it.img, 0, 0, w, h);
+
+      let blob;
+      if(sizeMode==='quality' || type==='image/png'){
+        const q = type==='image/png' ? undefined : (parseInt(qualitySlider.value)/100);
+        blob = await canvasToBlob(canvas, type, q);
+      } else {
+        blob = await compressToTarget(canvas, type, targetBytes);
+      }
+
+      if(it.resultUrl) URL.revokeObjectURL(it.resultUrl);
+      it.resultBlob = blob;
+      it.resultUrl = URL.createObjectURL(blob);
+      it.outW = w; it.outH = h;
+      it.status = 'done';
+    } catch(err){
+      it.status = 'error';
+    }
+
+    done++;
+    overallFill.style.width = Math.round(done/pending.length*100) + '%';
+    overallVal.textContent = `${done} / ${pending.length}`;
+    renderGrid();
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  processBtn.disabled = false;
+  const doneItems = items.filter(i=>i.status==='done');
+  downloadZipBtn.disabled = doneItems.length===0;
+
+  const bytesIn = doneItems.reduce((s,i)=>s+i.file.size,0);
+  const bytesOut = doneItems.reduce((s,i)=>s+i.resultBlob.size,0);
+  const diff = bytesIn - bytesOut;
+  statusText.className = 'status-text ok';
+  statusText.textContent = `完了 — ${doneItems.length}枚を書き出しました（合計 ${diff>=0?'-':'+'}${fmtBytes(Math.abs(diff))}）`;
+});
+
+// ============== ZIPダウンロード ==============
+downloadZipBtn.addEventListener('click', async ()=>{
+  const doneItems = items.filter(i=>i.status==='done');
+  if(doneItems.length===0) return;
+  downloadZipBtn.disabled = true;
+  const prevText = downloadZipBtn.textContent;
+  downloadZipBtn.textContent = 'ZIPを準備中…';
+
+  const zip = new JSZip();
+  const ext = extFor(formatSelect.value);
+  const usedNames = {};
+  for(const it of doneItems){
+    let name = baseName(it.file.name) + '_resized.' + ext;
+    if(usedNames[name]){
+      usedNames[name]++;
+      name = baseName(it.file.name) + '_resized_' + usedNames[name] + '.' + ext;
+    } else {
+      usedNames[name] = 1;
+    }
+    zip.file(name, it.resultBlob);
+  }
+  const content = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'resizer_output.zip';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  downloadZipBtn.textContent = prevText;
+  downloadZipBtn.disabled = false;
+});
+
+// ============== リセット ==============
+resetBtn.addEventListener('click', ()=>{
+  items.forEach(it=>{
+    if(it.url) URL.revokeObjectURL(it.url);
+    if(it.resultUrl) URL.revokeObjectURL(it.resultUrl);
+  });
+  items = [];
+  maxWInput.value=''; maxHInput.value='';
+  qualitySlider.value=85; qualityVal.textContent='85%';
+  targetSizeInput.value=500;
+  formatSelect.value='image/jpeg';
+  updatePngWarn();
+  renderGrid();
+  showCardsIfNeeded();
+  downloadZipBtn.disabled = true;
+  statusText.textContent = '';
+});
+
+updatePngWarn();
+</script>
+</body>
+</html>
